@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>一行おみくじ — きょうのヒント、そっと置いときます。</title>
+  <meta name="theme-color" content="#ffe9f1" />
+  <style>
+    :root{
+      --bg-sakura-from:#FFF7FB; --bg-sakura-via:#FFF1F7; --bg-sakura-to:#FFE9F1;
+      --bg-mizu-from:#F7FBFF;   --bg-mizu-via:#F0FAFF;   --bg-mizu-to:#E7F7FF;
+      --ink:#111827; --muted:#6B7280; --card:#ffffffcc; --border:#ffffff80;
+      --ring:#e5e7eb;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;
+      color:var(--ink);
+      background: linear-gradient(180deg,var(--bg-sakura-from),var(--bg-sakura-via),var(--bg-sakura-to));
+      min-height:100svh;
+    }
+    .wrap{max-width:680px;margin:0 auto;padding:24px 16px 96px}
+    header{display:flex;align-items:center;justify-content:space-between;padding-top:24px;padding-bottom:8px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand-badge{height:36px;width:36px;border-radius:16px;background:#fff7;backdrop-filter:blur(6px);display:grid;place-items:center;box-shadow:0 1px 4px #0001}
+    .muted{color:var(--muted);font-size:12px}
+    .card{background:var(--card);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:22px;box-shadow:0 8px 24px #0000000d;padding:20px}
+    .btn{appearance:none;border:none;border-radius:999px;padding:10px 14px;font-size:14px;cursor:pointer}
+    .btn-primary{background:#111827;color:#fff}
+    .btn-ghost{background:#fff;border:1px solid #e5e7eb}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .spacer{height:6px}
+    .tabs{display:flex;gap:8px;margin:12px 0}
+    .tab{padding:8px 12px;border-radius:999px;border:1px solid transparent;background:transparent}
+    .tab.active{background:#fff;border-color:#e5e7eb;box-shadow:0 1px 3px #0001}
+    .theme{
+      display:flex;gap:4px;align-items:center;background:#fff7;border:1px solid var(--border);padding:4px;border-radius:999px
+    }
+    .theme button{padding:6px 10px;border-radius:999px;border:0;background:transparent;font-size:12px;cursor:pointer}
+    .theme button.active{background:#111827;color:#fff}
+    .color-dot{width:24px;height:24px;border-radius:999px;border:1px solid #00000010}
+    .archive-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed #e5e7eb}
+    .archive-item:last-child{border-bottom:0}
+    .a11y-note{font-size:11px;color:var(--muted);margin-top:6px}
+    /* Mizu theme background */
+    .mizu{
+      background: linear-gradient(180deg,var(--bg-mizu-from),var(--bg-mizu-via),var(--bg-mizu-to));
+    }
+    blockquote{margin:0;font-size:20px;line-height:1.6;letter-spacing:.01em}
+    .small{font-size:12px}
+    .field{margin:8px 0}
+    .input{width:100%;padding:10px 12px;border-radius:14px;border:1px solid #e5e7eb;background:#fff}
+    footer{margin-top:28px;text-align:center;font-size:11px;color:var(--muted)}
+  </style>
+  <!-- 画像化ライブラリ（CDN） -->
+  <script src="https://unpkg.com/html-to-image@1.11.11/dist/html-to-image.js"></script>
+</head>
+<body>
+  <div id="app" class="wrap">
+    <header>
+      <div class="brand">
+        <div class="brand-badge" aria-hidden="true">✨</div>
+        <div>
+          <div style="font-weight:600">一行おみくじ</div>
+          <div class="muted">きょうのヒント、そっと置いときます。</div>
+        </div>
+      </div>
+      <div class="theme" role="tablist" aria-label="テーマ選択">
+        <button id="themeSakura" class="active" role="tab" aria-selected="true">Sakura</button>
+        <button id="themeMizu" role="tab" aria-selected="false">Mizu</button>
+      </div>
+    </header>
+
+    <section class="field">
+      <label class="muted" for="nick">ニックネーム（任意・端末にのみ保存）</label>
+      <input id="nick" class="input" maxlength="16" placeholder="例：しまりん" />
+    </section>
+
+    <nav class="tabs">
+      <button id="tabToday" class="tab active">今日</button>
+      <button id="tabArchive" class="tab">アーカイブ</button>
+    </nav>
+
+    <!-- Today Pane -->
+    <main id="paneToday">
+      <div id="card" class="card" aria-live="polite">
+        <div id="placeholder">
+          <div class="muted" style="text-align:center;margin-bottom:8px">ワンタップで今日のカードをめくる</div>
+          <div style="text-align:center">
+            <button id="btnReveal" class="btn btn-primary">✨ カードをめくる</button>
+          </div>
+        </div>
+
+        <div id="content" style="display:none">
+          <div class="row" style="justify-content:space-between;align-items:center">
+            <div>
+              <div class="small muted" id="dateText"></div>
+              <div style="font-weight:600">今日の一行</div>
+            </div>
+            <button id="btnReroll" class="btn btn-ghost small">⟳ もう一回だけ</button>
+          </div>
+
+          <blockquote id="oneLiner"></blockquote>
+
+          <div class="row" style="align-items:center">
+            <div id="colorDot" class="color-dot" aria-hidden="true"></div>
+            <div>
+              <div id="colorJa" style="font-weight:500"></div>
+              <div id="colorAlt" class="muted small"></div>
+            </div>
+          </div>
+
+          <div class="card" style="background:#f8fafc;border-color:#f1f5f9;margin-top:6px">
+            <span class="muted small">今日のひとこと </span><span id="tipText"></span>
+          </div>
+
+          <div class="row" style="margin-top:8px">
+            <button id="btnShareImg" class="btn btn-primary">📤 画像でシェア</button>
+            <button id="btnCopy" class="btn btn-ghost">📋 テキストをコピー</button>
+            <button id="btnSaveImg" class="btn btn-ghost">⬇️ 画像保存</button>
+          </div>
+        </div>
+      </div>
+      <p class="a11y-note">※ 個人情報はサーバーに送信されません。データは端末内に保存されます。</p>
+    </main>
+
+    <!-- Archive Pane -->
+    <main id="paneArchive" style="display:none">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span>🕘</span><h2 style="margin:0;font-size:16px">アーカイブ（直近7件）</h2>
+        </div>
+        <div id="archList" class="small muted">まだ履歴がありません。今日のカードをめくってみましょう。</div>
+      </div>
+    </main>
+
+    <footer>© <span id="year"></span> Ichigo Omikuji — 優しい一行で、今日を少し軽く。</footer>
+  </div>
+
+<script>
+/* ====== ユーティリティ（seed乱数） ====== */
+function xmur3(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19)}return function(){h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);return (h^=h>>>16)>>>0}}
+function mulberry32(a){return function(){let t=(a+=0x6d2b79f5);t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296}}
+function seededPick(arr, seed){if(!arr.length) return undefined; const r=mulberry32(seed)(); return arr[Math.floor(r*arr.length)]}
+function yyyymmdd(d){const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,"0");const dd=String(d.getDate()).padStart(2,"0");return `${y}${m}${dd}`}
+
+/* ====== データ ====== */
+const PALETTE=[
+  {key:"Mizu",   ja:"ミズイロ", hex:"#B7E3F9", alt:"うがいレベルのさっぱり感"},
+  {key:"Sakura", ja:"サクラ",   hex:"#FAD1E6", alt:"やわらかい余白の気分"},
+  {key:"Mikan",  ja:"ミカン",   hex:"#FFB86B", alt:"小さな陽だまり"},
+  {key:"Matcha", ja:"マッチャ", hex:"#8AD1A0", alt:"静かに整う"},
+  {key:"Sumire", ja:"スミレ",   hex:"#A39BE8", alt:"ふんわり余韻"},
+  {key:"Hikari", ja:"ヒカリ",   hex:"#FFF3B0", alt:"ふっと軽くなる"},
+  {key:"Umi",    ja:"ウミ",     hex:"#7FC8E3", alt:"深呼吸みたいな青"},
+  {key:"Hojicha",ja:"ほうじ茶", hex:"#B08968", alt:"香ばしい落ち着き"}
+];
+
+const ONE_LINERS=[
+ "肩の力を3%抜くと、景色が少し広がる日。",
+ "小さな『まあいいか』が、やさしい追い風になる。",
+ "整ってなくても、進んでいるならそれで十分。",
+ "予定よりゆっくりで、むしろちょうどいい。",
+ "丁寧に飲む一口が、午後をまろやかにする。",
+ "今日は『短く言う』が伝わる近道。",
+ "光はいつも、少し遅れて届く。",
+ "“好き”を1ミリ前に出すだけで空気が変わる。",
+ "深呼吸は、無料のリセットボタン。",
+ "誰かのペースに乗らなくて大丈夫、今日は自分のテンポで。",
+ "やり直しは失敗ではなく、微調整の別名。",
+ "ひとつ手放すと、ひとつ入ってくる。",
+ "迷ったら、やわらかい方を選ぶ。",
+ "短所は『味』、長所は『余白』で活きる。",
+ "『まだ』は希望の現在形。",
+ "ご機嫌は作れる。まず姿勢を1cm伸ばす。",
+ "ガッツより、ゆるい継続が効いてくる。",
+ "空を一回見上げると、足取りが軽くなる。",
+ "『それもいいね』で、世界が丸くなる。",
+ "今日のあなたで十分すてき。"
+];
+
+const ACTION_TIPS=[
+ "水を一杯。ゆっくり飲む。","5分だけタイマーで手を動かす。","窓辺で深呼吸を3回。","机の上を30cmだけ片付ける。","誰か一人に『ありがとう』を送る。",
+ "お気に入りの音楽を1曲だけ。","歩幅を少し広くして歩く。","好きな色のものを身につける。","スマホを10分遠ざける。","今日の良かったことを一行メモ。",
+ "姿勢を1cm伸ばす。","おやつを丁寧に味わう。","光を入れる。カーテン少しオープン。","言い換えを一回試す。","散歩で角を一つだけ曲がる。"
+];
+
+/* ====== 状態・保存 ====== */
+const LS_HISTORY="ichigo_omikuji_history_v1";
+const LS_PREFS="ichigo_omikuji_prefs_v1";
+const today=new Date(); const todayKey=yyyymmdd(today);
+
+function loadHistory(){try{const raw=localStorage.getItem(LS_HISTORY);return raw?JSON.parse(raw):[]}catch{return []}}
+function saveHistory(list){try{localStorage.setItem(LS_HISTORY,JSON.stringify(list.slice(0,30)))}catch{}}
+function loadPrefs(){try{const raw=localStorage.getItem(LS_PREFS);return raw?JSON.parse(raw):{nickname:"",theme:"Sakura"}}catch{return {nickname:"",theme:"Sakura"}}}
+function savePrefs(p){try{localStorage.setItem(LS_PREFS,JSON.stringify(p))}catch{}}
+function hashNick(n){const h=xmur3(n||"guest")();return h.toString(16).slice(0,6)}
+
+/* ====== DOM参照 ====== */
+const elApp=document.getElementById("app");
+const elNick=document.getElementById("nick");
+const elThemeS=document.getElementById("themeSakura");
+const elThemeM=document.getElementById("themeMizu");
+const elTabToday=document.getElementById("tabToday");
+const elTabArchive=document.getElementById("tabArchive");
+const paneToday=document.getElementById("paneToday");
+const paneArchive=document.getElementById("paneArchive");
+const yearEl=document.getElementById("year");
+const btnReveal=document.getElementById("btnReveal");
+const btnReroll=document.getElementById("btnReroll");
+const btnShareImg=document.getElementById("btnShareImg");
+const btnSaveImg=document.getElementById("btnSaveImg");
+const btnCopy=document.getElementById("btnCopy");
+const placeholder=document.getElementById("placeholder");
+const content=document.getElementById("content");
+const dateText=document.getElementById("dateText");
+const oneLinerEl=document.getElementById("oneLiner");
+const colorDot=document.getElementById("colorDot");
+const colorJa=document.getElementById("colorJa");
+const colorAlt=document.getElementById("colorAlt");
+const tipText=document.getElementById("tipText");
+const archList=document.getElementById("archList");
+const card=document.getElementById("card");
+
+let prefs=loadPrefs();
+let history=loadHistory();
+let revealed=null;
+let rolledOnce=false;
+
+function applyTheme(){
+  if(prefs.theme==="Mizu"){ document.body.classList.add("mizu"); }
+  else{ document.body.classList.remove("mizu"); }
+  elThemeS.classList.toggle("active", prefs.theme==="Sakura");
+  elThemeM.classList.toggle("active", prefs.theme==="Mizu");
+}
+function setTab(which){
+  const t=(which==="today");
+  elTabToday.classList.toggle("active", t);
+  elTabArchive.classList.toggle("active", !t);
+  paneToday.style.display=t?"block":"none";
+  paneArchive.style.display=t?"none":"block";
+}
+function renderArchive(){
+  const recent=history.slice(0,7);
+  if(!recent.length){ archList.className="small muted"; archList.textContent="まだ履歴がありません。今日のカードをめくってみましょう。"; return; }
+  archList.className=""; archList.innerHTML="";
+  recent.forEach(r=>{
+    const row=document.createElement("div");
+    row.className="archive-item";
+    const left=document.createElement("div");
+    left.style.display="flex"; left.style.alignItems="center"; left.style.gap="8px";
+    const dot=document.createElement("div"); dot.className="color-dot"; dot.style.background=r.colorHex;
+    const info=document.createElement("div");
+    const d=document.createElement("div"); d.className="small muted"; d.textContent=new Date(r.dateISO).toLocaleDateString("ja-JP")+(r.rerolled?"（引き直し）":"");
+    const line=document.createElement("div"); line.className="small"; line.textContent=r.oneLiner;
+    info.appendChild(d); info.appendChild(line);
+    left.appendChild(dot); left.appendChild(info);
+    const btn=document.createElement("button"); btn.className="btn btn-ghost small"; btn.textContent="ひらく";
+    btn.addEventListener("click", ()=>{ revealFromReading(r); setTab("today"); });
+    row.appendChild(left); row.appendChild(btn);
+    archList.appendChild(row);
+  });
+}
+
+/* ====== ロジック ====== */
+function generate(seedStr, rerolled){
+  const seed=xmur3(seedStr)();
+  const color=seededPick(PALETTE, seed);
+  const one=seededPick(ONE_LINERS, seed ^ 0x9e3779b1);
+  const tip=seededPick(ACTION_TIPS, seed ^ 0x85ebca6b);
+  const id=`${todayKey}:${hashNick(prefs.nickname)}:${rerolled?1:0}`;
+  return {id, dateISO: new Date().toISOString(), nickname: prefs.nickname||"", oneLiner: one, colorKey: color.key, colorHex: color.hex, colorJa: color.ja, colorAlt: color.alt, tip, rerolled};
+}
+
+function revealFromReading(r){
+  revealed=r; rolledOnce=!!r.rerolled;
+  placeholder.style.display="none"; content.style.display="block";
+  dateText.textContent=new Date().toLocaleDateString("ja-JP");
+  oneLinerEl.textContent=r.oneLiner;
+  colorDot.style.background=r.colorHex;
+  colorJa.textContent="ラッキー色："+r.colorJa;
+  colorAlt.textContent=r.colorAlt;
+  tipText.textContent=r.tip;
+  btnReroll.style.display = rolledOnce ? "none" : "inline-block";
+}
+
+function onReveal(){
+  const seedStr=`${todayKey}-${(prefs.nickname||"guest")}`;
+  const r=generate(seedStr,false);
+  revealFromReading(r);
+  history=[r, ...history.filter(h=>!h.id.startsWith(`${todayKey}:`))];
+  saveHistory(history); renderArchive();
+}
+function onReroll(){
+  if(rolledOnce) return;
+  const seedStr=`${todayKey}-${(prefs.nickname||"guest")}-reroll`;
+  const r=generate(seedStr,true);
+  revealFromReading(r);
+  rolledOnce=true;
+  history=[r, ...history.filter(h=>!h.id.startsWith(`${todayKey}:`))];
+  saveHistory(history); renderArchive();
+}
+async function shareOrDownload(){
+  try{
+    const dataUrl=await htmlToImage.toPng(card,{cacheBust:true,pixelRatio:2});
+    const res=await fetch(dataUrl); const blob=await res.blob();
+    const file=new File([blob],`ichigo_${todayKey}.png`,{type:"image/png"});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:"一行おみくじ", text:"きょうのヒント、そっと置いときます。"});
+    }else{
+      const a=document.createElement("a"); a.href=dataUrl; a.download=`ichigo_${todayKey}.png`; a.click();
+    }
+  }catch(e){ console.error(e) }
+}
+async function copyText(){
+  if(!revealed) return;
+  const text=`【一行おみくじ】\n${revealed.oneLiner}\nラッキー色：${revealed.colorJa}（${revealed.colorAlt}）\n今日のひとこと：${revealed.tip}`;
+  try{ await navigator.clipboard.writeText(text); alert("テキストをコピーしました ✨"); }
+  catch{
+    const ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta);
+    ta.select(); document.execCommand("copy"); ta.remove(); alert("テキストをコピーしました ✨");
+  }
+}
+
+/* ====== 初期化 ====== */
+(function init(){
+  yearEl.textContent=String(new Date().getFullYear());
+  elNick.value=prefs.nickname||"";
+  applyTheme(); setTab("today"); renderArchive();
+
+  // 既に今日の結果があれば表示
+  const saved=history.find(r=>r.id.startsWith(`${todayKey}:`));
+  if(saved){ revealFromReading(saved) }
+
+  // イベント
+  elNick.addEventListener("input", (e)=>{ prefs.nickname=e.target.value; savePrefs(prefs) });
+  elThemeS.addEventListener("click", ()=>{ prefs.theme="Sakura"; savePrefs(prefs); applyTheme() });
+  elThemeM.addEventListener("click", ()=>{ prefs.theme="Mizu";    savePrefs(prefs); applyTheme() });
+  elTabToday.addEventListener("click", ()=>setTab("today"));
+  elTabArchive.addEventListener("click", ()=>setTab("archive"));
+
+  btnReveal.addEventListener("click", onReveal);
+  btnReroll.addEventListener("click", onReroll);
+  btnShareImg.addEventListener("click", shareOrDownload);
+  btnSaveImg.addEventListener("click", shareOrDownload);
+  btnCopy.addEventListener("click", copyText);
+})();
+</script>
+</body>
+</html>
